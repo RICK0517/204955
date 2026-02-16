@@ -17,6 +17,7 @@
     label { display:block; margin-top:10px; font-size:13px; opacity:.9; }
     input, select { width:100%; padding:10px; margin-top:4px; border-radius:10px;
       border:1px solid #2a3b61; background:#0b1324; color:#e8eefc; box-sizing:border-box; }
+    select[multiple] { min-height:100px; }
     input:focus, select:focus { outline:none; border-color:#4b76ff; }
     button { padding:10px 14px; border-radius:10px; border:0; background:#4b76ff; color:white; cursor:pointer; font-weight:600; }
     button.secondary { background:#2a3b61; }
@@ -68,6 +69,9 @@
       <option value="2">2 主管</option>
       <option value="3">3 員工</option>
     </select>
+    <label for="initAreas">場域（可多選，建立帳號必選）</label>
+    <select id="initAreas" multiple></select>
+    <div class="hint">提示：可按住 Ctrl / Command 進行多選。</div>
     <div class="row">
       <button id="btnInitSave">建立</button>
       <button class="secondary" id="btnInitBack">返回登入</button>
@@ -99,7 +103,8 @@
         <div class="hint">
           名稱：<span class="mono" id="meNameShow"></span><br/>
           帳號：<span class="mono" id="meUserShow"></span><br/>
-          身分：<span class="pill" id="meRoleShow"></span>
+          身分：<span class="pill" id="meRoleShow"></span><br/>
+          場域：<span class="mono" id="meAreasShow"></span>
         </div>
 
         <div class="row">
@@ -113,26 +118,37 @@
         <h1>管理其他人的帳密</h1>
         <div class="hint">
           工程師（1）/ 主管（2）可修改其他人的帳號與密碼；員工（3）不顯示此區。<br/>
-          身分建立後鎖定，不提供修改。
+          這裡的帳號與密碼欄位，和「修改自己的帳號 / 密碼」介面一致。身分建立後鎖定，不提供修改。
         </div>
 
         <div class="divider"></div>
 
-        <h2>選擇要修改的人</h2>
+        <h2>修改他人的帳號 / 密碼</h2>
         <label for="otherSelect">使用者</label>
         <select id="otherSelect"></select>
 
         <label for="otherNameView">名稱（僅顯示）</label>
         <input id="otherNameView" disabled />
 
-        <label for="otherUserEdit">新帳號（不可重複）</label>
+        <label for="otherUserEdit">帳號（不可重複）</label>
         <input id="otherUserEdit" />
 
-        <label for="otherPassEdit">新密碼</label>
+        <label for="otherPassEdit">密碼</label>
         <input id="otherPassEdit" type="text" />
 
         <div class="row">
-          <button id="btnSaveOther">儲存修改</button>
+          <button id="btnSaveOther">儲存</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div id="areaManageWrap" hidden>
+          <h2>場域管理（僅工程師）</h2>
+          <label for="newAreaName">新增場域名稱</label>
+          <input id="newAreaName" placeholder="例如：台北廠" />
+          <div class="row">
+            <button id="btnAddArea">新增場域</button>
+          </div>
         </div>
 
         <div class="divider"></div>
@@ -154,6 +170,10 @@
           <option value="2">2 主管</option>
           <option value="3">3 員工</option>
         </select>
+
+        <label for="newAreas">場域（可多選，建立帳號必選）</label>
+        <select id="newAreas" multiple></select>
+        <div class="hint">提示：可按住 Ctrl / Command 進行多選。</div>
 
         <div class="row">
           <button id="btnCreateUser">建立帳號</button>
@@ -202,9 +222,11 @@
 <script>
 (() => {
   const K = {
-    users: "demo_users_v2",      // [{id, name, username, password, role, createdAt, updatedAt}]
+    users: "demo_users_v2",      // [{id, name, username, password, role, areas, createdAt, updatedAt}]
+    areas: "demo_areas_v1",      // ["北區", "南區", ...]
     session: "demo_session_v2"   // { userId }
   };
+  const DEFAULT_AREAS = ["北區", "中區", "南區"];
   const $ = (id) => document.getElementById(id);
   const nowISO = () => new Date().toISOString();
   const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : (Date.now() + "_" + Math.random().toString(16).slice(2)));
@@ -232,6 +254,39 @@
   }
   function saveUsers(users){
     localStorage.setItem(K.users, JSON.stringify(users));
+  }
+
+
+  function loadAreas(){
+    try {
+      const arr = JSON.parse(localStorage.getItem(K.areas) || "null");
+      if (Array.isArray(arr)) return normalizeAreas(arr);
+      return [...DEFAULT_AREAS];
+    } catch {
+      return [...DEFAULT_AREAS];
+    }
+  }
+  function saveAreas(areas){
+    localStorage.setItem(K.areas, JSON.stringify(normalizeAreas(areas)));
+  }
+  function normalizeAreas(areas){
+    return [...new Set((areas || []).map(v => String(v || "").trim()).filter(Boolean))];
+  }
+  function getSelectedValues(selectEl){
+    return Array.from(selectEl.selectedOptions || []).map(opt => opt.value);
+  }
+  function renderAreaOptions(selectId, areas, selected = []){
+    const sel = $(selectId);
+    if (!sel) return;
+    const selectedSet = new Set(selected);
+    sel.innerHTML = "";
+    for (const area of areas){
+      const opt = document.createElement("option");
+      opt.value = area;
+      opt.textContent = area;
+      if (selectedSet.has(area)) opt.selected = true;
+      sel.appendChild(opt);
+    }
   }
 
   function getSession(){
@@ -290,6 +345,7 @@
 
   function refreshPanel(){
     const users = loadUsers();
+    const areas = loadAreas();
     const sess = getSession();
     const me = sess ? findUserById(users, sess.userId) : null;
 
@@ -304,6 +360,7 @@
     $("meNameShow").textContent = me.name || "";
     $("meUserShow").textContent = me.username || "";
     $("meRoleShow").textContent = roleText(me.role);
+    $("meAreasShow").textContent = (me.areas || []).join("、") || "未設定";
 
     // edit self fields
     $("meUserEdit").value = me.username || "";
@@ -314,6 +371,8 @@
     $("adminCard").hidden = !okAdmin;
 
     if (okAdmin){
+      $("areaManageWrap").hidden = String(me.role) !== "1";
+      renderAreaOptions("newAreas", areas);
       // Populate other users select (exclude me)
       const others = users.filter(u => u.id !== me.id);
       const sel = $("otherSelect");
@@ -345,6 +404,10 @@
   // ----- boot routing -----
   (function boot(){
     const users = loadUsers();
+    const savedAreas = loadAreas();
+    saveAreas(savedAreas);
+    renderAreaOptions("initAreas", savedAreas);
+    renderAreaOptions("newAreas", savedAreas);
     const sess = getSession();
 
     if (users.length === 0){
@@ -364,7 +427,10 @@
   })();
 
   // ===== init / create account =====
-  $("btnGotoInit").addEventListener("click", () => showOnly("init"));
+  $("btnGotoInit").addEventListener("click", () => {
+    renderAreaOptions("initAreas", loadAreas());
+    showOnly("init");
+  });
   $("btnInitBack").addEventListener("click", () => showOnly("login"));
 
   $("btnInitSave").addEventListener("click", () => {
@@ -372,10 +438,12 @@
     const username = $("initUser").value.trim();
     const password = $("initPass").value;
     const role = $("initRole").value;
+    const selectedAreas = getSelectedValues($("initAreas"));
 
     if (!name) return setMsg($("initMsg"), "名稱要填。", false);
     if (!username || !password) return setMsg($("initMsg"), "帳號與密碼都要填。", false);
     if (!role) return setMsg($("initMsg"), "身分一定要選，建立後鎖定。", false);
+    if (selectedAreas.length === 0) return setMsg($("initMsg"), "至少要選擇一個場域。", false);
 
     const users = loadUsers();
     if (findUserByUsername(users, username)) return setMsg($("initMsg"), "帳號已存在。", false);
@@ -386,6 +454,7 @@
       username,
       password,
       role: String(role),
+      areas: selectedAreas,
       createdAt: nowISO(),
       updatedAt: nowISO()
     });
@@ -505,10 +574,12 @@
     const username = $("newUser").value.trim();
     const password = $("newPass").value;
     const role = $("newRole").value;
+    const selectedAreas = getSelectedValues($("newAreas"));
 
     if (!name) return setMsg($("adminMsg"), "名稱要填。", false);
     if (!username || !password) return setMsg($("adminMsg"), "新帳號與密碼都要填。", false);
     if (!role) return setMsg($("adminMsg"), "新帳號身分一定要選。", false);
+    if (selectedAreas.length === 0) return setMsg($("adminMsg"), "新帳號至少要選擇一個場域。", false);
     if (findUserByUsername(users, username)) return setMsg($("adminMsg"), "帳號已存在。", false);
 
     users.push({
@@ -517,6 +588,7 @@
       username,
       password,
       role: String(role),
+      areas: selectedAreas,
       createdAt: nowISO(),
       updatedAt: nowISO()
     });
@@ -526,9 +598,32 @@
     $("newUser").value = "";
     $("newPass").value = "";
     $("newRole").value = "";
+    renderAreaOptions("newAreas", loadAreas());
 
     refreshPanel();
     setMsg($("adminMsg"), "已建立新帳號。", true);
+  });
+
+
+  // ===== engineer add area =====
+  $("btnAddArea").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me || String(me.role) !== "1") return;
+
+    const areaName = $("newAreaName").value.trim();
+    if (!areaName) return setMsg($("adminMsg"), "場域名稱要填。", false);
+
+    const areas = loadAreas();
+    if (areas.includes(areaName)) return setMsg($("adminMsg"), "場域已存在。", false);
+
+    areas.push(areaName);
+    saveAreas(areas);
+    renderAreaOptions("newAreas", areas);
+    renderAreaOptions("initAreas", areas);
+    $("newAreaName").value = "";
+    setMsg($("adminMsg"), "已新增場域。", true);
   });
 
   // ===== logout =====
@@ -543,6 +638,7 @@
   $("btnResetAll").addEventListener("click", () => {
     localStorage.removeItem(K.users);
     localStorage.removeItem(K.session);
+    localStorage.removeItem(K.areas);
     stopClock();
     showOnly("init");
     setMsg($("resetMsg"), "已清空，請重新建立帳號。", true);
