@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>登入系統 Demo（含名稱 / 權限）</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; }
+    body { margin:0; background:#0b0f16; color:#e8eefc; }
+    .wrap { max-width:820px; margin:40px auto; padding:16px; }
+    .grid { display:grid; grid-template-columns: 1fr; gap:14px; }
+    @media (min-width: 860px){ .grid { grid-template-columns: 1fr 1fr; } }
+    .full { grid-column: 1 / -1; }
+    .card { background:#111a2a; border:1px solid #1d2a44; border-radius:14px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    h1 { font-size:18px; margin:0 0 12px; }
+    h2 { font-size:15px; margin:0 0 10px; opacity:.95; }
+    label { display:block; margin-top:10px; font-size:13px; opacity:.9; }
+    input, select { width:100%; padding:10px; margin-top:4px; border-radius:10px;
+      border:1px solid #2a3b61; background:#0b1324; color:#e8eefc; box-sizing:border-box; }
+    input:focus, select:focus { outline:none; border-color:#4b76ff; }
+    button { padding:10px 14px; border-radius:10px; border:0; background:#4b76ff; color:white; cursor:pointer; font-weight:600; }
+    button.secondary { background:#2a3b61; }
+    button.danger { background:#ff4b6e; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .pill { border:1px solid #2a3b61; border-radius:999px; padding:2px 8px; font-size:12px; display:inline-block; }
+    .divider { height:1px; background:#1d2a44; margin:14px 0; }
+    .msg { margin-top:10px; font-size:13px; }
+    .msg.ok { color:#7CFFB2; }
+    .msg.bad { color:#ff9ab0; }
+    .hint { font-size:12px; opacity:.8; line-height:1.6; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 登入 -->
+  <div class="card" id="loginCard" hidden>
+    <h1>登入</h1>
+    <label for="loginUser">帳號</label>
+    <input id="loginUser" autocomplete="username" />
+    <label for="loginPass">密碼</label>
+    <input id="loginPass" type="password" autocomplete="current-password" />
+    <div class="row">
+      <button id="btnLogin">登入</button>
+      <button class="secondary" id="btnGotoInit">建立帳號</button>
+    </div>
+    <div class="hint" style="margin-top:10px;">
+      Demo：資料保存在瀏覽器 localStorage，屬於明文保存，只適合練習/內測。
+    </div>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <!-- 建立帳號 -->
+  <div class="card" id="initCard" hidden>
+    <h1>建立帳號</h1>
+    <label for="initName">名稱（登入時不需要）</label>
+    <input id="initName" placeholder="例如：王小明" />
+    <label for="initUser">帳號（不可重複）</label>
+    <input id="initUser" autocomplete="username" />
+    <label for="initPass">密碼</label>
+    <input id="initPass" type="password" autocomplete="new-password" />
+    <label for="initRole">身分（建立後鎖定）</label>
+    <select id="initRole">
+      <option value="" disabled selected>請選擇</option>
+      <option value="1">1 工程師</option>
+      <option value="2">2 主管</option>
+      <option value="3">3 員工</option>
+    </select>
+    <div class="row">
+      <button id="btnInitSave">建立</button>
+      <button class="secondary" id="btnInitBack">返回登入</button>
+    </div>
+    <div class="msg" id="initMsg"></div>
+  </div>
+
+  <!-- 登入後：主畫面 +（可選）管理區 -->
+  <div id="panelArea" hidden>
+    <div class="grid">
+
+      <!-- 主畫面 -->
+      <div class="card">
+        <div class="topbar">
+          <h1 style="margin:0;">主畫面</h1>
+          <button class="secondary" id="btnGotoEdit">修改</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div style="text-align:center;">
+          <div style="opacity:.8; font-size:13px;">現在時間</div>
+          <div id="clock" class="mono" style="font-size:36px; font-weight:800; margin-top:6px;">--:--:--</div>
+          <div id="clockDate" style="opacity:.75; font-size:12px; margin-top:6px;"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="hint">
+          名稱：<span class="mono" id="meNameShow"></span><br/>
+          帳號：<span class="mono" id="meUserShow"></span><br/>
+          身分：<span class="pill" id="meRoleShow"></span>
+        </div>
+
+        <div class="row">
+          <button class="secondary" id="btnLogout">登出</button>
+        </div>
+        <div class="msg" id="dashMsg"></div>
+      </div>
+
+      <!-- 管理其他人：只給 工程師(1) / 主管(2) -->
+      <div class="card" id="adminCard" hidden>
+        <h1>管理其他人的帳密</h1>
+        <div class="hint">
+          工程師（1）/ 主管（2）可修改其他人的帳號與密碼；員工（3）不顯示此區。<br/>
+          身分建立後鎖定，不提供修改。
+        </div>
+
+        <div class="divider"></div>
+
+        <h2>選擇要修改的人</h2>
+        <label for="otherSelect">使用者</label>
+        <select id="otherSelect"></select>
+
+        <label for="otherNameView">名稱（僅顯示）</label>
+        <input id="otherNameView" disabled />
+
+        <label for="otherUserEdit">新帳號（不可重複）</label>
+        <input id="otherUserEdit" />
+
+        <label for="otherPassEdit">新密碼</label>
+        <input id="otherPassEdit" type="text" />
+
+        <div class="row">
+          <button id="btnSaveOther">儲存修改</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2>建立新帳號</h2>
+        <label for="newName">名稱</label>
+        <input id="newName" placeholder="例如：陳大華" />
+
+        <label for="newUser">帳號（不可重複）</label>
+        <input id="newUser" />
+
+        <label for="newPass">密碼</label>
+        <input id="newPass" type="password" />
+
+        <label for="newRole">身分（建立後鎖定）</label>
+        <select id="newRole">
+          <option value="" disabled selected>請選擇</option>
+          <option value="1">1 工程師</option>
+          <option value="2">2 主管</option>
+          <option value="3">3 員工</option>
+        </select>
+
+        <div class="row">
+          <button id="btnCreateUser">建立帳號</button>
+        </div>
+
+        <div class="msg" id="adminMsg"></div>
+      </div>
+
+      <!-- 修改自己帳密（由「修改」進入） -->
+      <div class="card full" id="editCard" hidden>
+        <div class="topbar">
+          <h1 style="margin:0;">修改自己的帳號 / 密碼</h1>
+          <button class="secondary" id="btnBackDashboard">返回</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="hint">名稱建立時輸入（登入不需要）。此頁只提供修改帳號與密碼。</div>
+
+        <label for="meUserEdit">帳號（不可重複）</label>
+        <input id="meUserEdit" />
+
+        <label for="mePassEdit">密碼</label>
+        <input id="mePassEdit" type="text" />
+
+        <div class="row">
+          <button id="btnSaveMe">儲存</button>
+        </div>
+
+        <div class="msg" id="meMsg"></div>
+      </div>
+
+      <!-- 重置 -->
+      <div class="card full">
+        <h2>重置（清空所有資料）</h2>
+        <div class="row">
+          <button class="danger" id="btnResetAll">清除 localStorage 並重新開始</button>
+        </div>
+        <div class="msg" id="resetMsg"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const K = {
+    users: "demo_users_v2",      // [{id, name, username, password, role, createdAt, updatedAt}]
+    session: "demo_session_v2"   // { userId }
+  };
+  const $ = (id) => document.getElementById(id);
+  const nowISO = () => new Date().toISOString();
+  const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : (Date.now() + "_" + Math.random().toString(16).slice(2)));
+
+  function roleText(v){
+    switch(String(v)){
+      case "1": return "1 工程師";
+      case "2": return "2 主管";
+      case "3": return "3 員工";
+      default: return "未設定";
+    }
+  }
+  function canManageOthers(role){
+    return String(role) === "1" || String(role) === "2";
+  }
+
+  function setMsg(el, text, ok=true){
+    el.textContent = text;
+    el.className = "msg " + (ok ? "ok" : "bad");
+  }
+
+  function loadUsers(){
+    try { return JSON.parse(localStorage.getItem(K.users) || "[]"); }
+    catch { return []; }
+  }
+  function saveUsers(users){
+    localStorage.setItem(K.users, JSON.stringify(users));
+  }
+
+  function getSession(){
+    try { return JSON.parse(localStorage.getItem(K.session) || "null"); }
+    catch { return null; }
+  }
+  function setSession(userId){
+    localStorage.setItem(K.session, JSON.stringify({ userId }));
+  }
+  function clearSession(){
+    localStorage.removeItem(K.session);
+  }
+
+  function findUserById(users, id){
+    return users.find(u => u.id === id) || null;
+  }
+  function findUserByUsername(users, username){
+    return users.find(u => u.username === username) || null;
+  }
+
+  function showOnly(which){
+    $("loginCard").hidden = which !== "login";
+    $("initCard").hidden  = which !== "init";
+    $("panelArea").hidden = which !== "panel";
+    // within panel
+    $("editCard").hidden  = which !== "edit";
+    if (which === "edit") {
+      $("panelArea").hidden = false;
+    }
+  }
+
+  // ----- Clock -----
+  let clockTimer = null;
+  function startClock(){
+    if (clockTimer) return; // avoid multiple timers
+    const clockEl = $("clock");
+    const dateEl = $("clockDate");
+    if (!clockEl) return;
+
+    const tick = () => {
+      const d = new Date();
+      const h = String(d.getHours()).padStart(2, "0");
+      const m = String(d.getMinutes()).padStart(2, "0");
+      const s = String(d.getSeconds()).padStart(2, "0");
+      clockEl.textContent = `${h}:${m}:${s}`;
+      dateEl.textContent = d.toLocaleDateString("zh-Hant", { year:"numeric", month:"2-digit", day:"2-digit", weekday:"short" });
+    };
+    tick();
+    clockTimer = setInterval(tick, 1000);
+  }
+  function stopClock(){
+    if (!clockTimer) return;
+    clearInterval(clockTimer);
+    clockTimer = null;
+  }
+
+  function refreshPanel(){
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+
+    if (!me){
+      clearSession();
+      stopClock();
+      showOnly(users.length ? "login" : "init");
+      return;
+    }
+
+    // dashboard show
+    $("meNameShow").textContent = me.name || "";
+    $("meUserShow").textContent = me.username || "";
+    $("meRoleShow").textContent = roleText(me.role);
+
+    // edit self fields
+    $("meUserEdit").value = me.username || "";
+    $("mePassEdit").value = me.password || "";
+
+    // admin visibility
+    const okAdmin = canManageOthers(me.role);
+    $("adminCard").hidden = !okAdmin;
+
+    if (okAdmin){
+      // Populate other users select (exclude me)
+      const others = users.filter(u => u.id !== me.id);
+      const sel = $("otherSelect");
+      sel.innerHTML = "";
+
+      if (others.length === 0){
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "（目前沒有其他帳號）";
+        sel.appendChild(opt);
+        $("otherNameView").value = "";
+        $("otherUserEdit").value = "";
+        $("otherPassEdit").value = "";
+      } else {
+        for (const u of others){
+          const opt = document.createElement("option");
+          opt.value = u.id;
+          opt.textContent = `${u.name || "(未命名)"} / ${u.username} / ${roleText(u.role)}`;
+          sel.appendChild(opt);
+        }
+        sel.value = others[0].id;
+        $("otherNameView").value = others[0].name || "";
+        $("otherUserEdit").value = others[0].username || "";
+        $("otherPassEdit").value = others[0].password || "";
+      }
+    }
+  }
+
+  // ----- boot routing -----
+  (function boot(){
+    const users = loadUsers();
+    const sess = getSession();
+
+    if (users.length === 0){
+      showOnly("init");
+      return;
+    }
+
+    const me = sess?.userId ? findUserById(users, sess.userId) : null;
+    if (me){
+      showOnly("panel");
+      refreshPanel();
+      startClock();
+      return;
+    }
+
+    showOnly("login");
+  })();
+
+  // ===== init / create account =====
+  $("btnGotoInit").addEventListener("click", () => showOnly("init"));
+  $("btnInitBack").addEventListener("click", () => showOnly("login"));
+
+  $("btnInitSave").addEventListener("click", () => {
+    const name = $("initName").value.trim();
+    const username = $("initUser").value.trim();
+    const password = $("initPass").value;
+    const role = $("initRole").value;
+
+    if (!name) return setMsg($("initMsg"), "名稱要填。", false);
+    if (!username || !password) return setMsg($("initMsg"), "帳號與密碼都要填。", false);
+    if (!role) return setMsg($("initMsg"), "身分一定要選，建立後鎖定。", false);
+
+    const users = loadUsers();
+    if (findUserByUsername(users, username)) return setMsg($("initMsg"), "帳號已存在。", false);
+
+    users.push({
+      id: uuid(),
+      name,
+      username,
+      password,
+      role: String(role),
+      createdAt: nowISO(),
+      updatedAt: nowISO()
+    });
+    saveUsers(users);
+
+    setMsg($("initMsg"), "建立完成，請登入。", true);
+    showOnly("login");
+    $("loginUser").value = username;
+    $("loginPass").value = "";
+  });
+
+  // ===== login =====
+  $("btnLogin").addEventListener("click", () => {
+    const username = $("loginUser").value.trim();
+    const password = $("loginPass").value;
+
+    const users = loadUsers();
+    const me = findUserByUsername(users, username);
+
+    if (!me || me.password !== password){
+      return setMsg($("loginMsg"), "帳號或密碼錯誤。", false);
+    }
+
+    setSession(me.id);
+    showOnly("panel");
+    refreshPanel();
+    startClock();
+    setMsg($("dashMsg"), "登入成功。", true);
+  });
+
+  // ===== dashboard -> edit =====
+  $("btnGotoEdit").addEventListener("click", () => {
+    showOnly("edit");
+    $("meMsg").textContent = "";
+  });
+
+  $("btnBackDashboard").addEventListener("click", () => {
+    showOnly("panel");
+  });
+
+  // ===== save self =====
+  $("btnSaveMe").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me) return;
+
+    const newUser = $("meUserEdit").value.trim();
+    const newPass = $("mePassEdit").value;
+
+    if (!newUser || !newPass) return setMsg($("meMsg"), "帳號與密碼都要填。", false);
+
+    const conflict = users.find(u => u.username === newUser && u.id !== me.id);
+    if (conflict) return setMsg($("meMsg"), "帳號已被其他人使用。", false);
+
+    me.username = newUser;
+    me.password = newPass;
+    me.updatedAt = nowISO();
+
+    saveUsers(users);
+    refreshPanel();
+    setMsg($("meMsg"), "已儲存。", true);
+  });
+
+  // ===== admin select other =====
+  $("otherSelect").addEventListener("change", () => {
+    const users = loadUsers();
+    const id = $("otherSelect").value;
+    const u = findUserById(users, id);
+    if (!u){
+      $("otherNameView").value = "";
+      $("otherUserEdit").value = "";
+      $("otherPassEdit").value = "";
+      return;
+    }
+    $("otherNameView").value = u.name || "";
+    $("otherUserEdit").value = u.username || "";
+    $("otherPassEdit").value = u.password || "";
+  });
+
+  // ===== admin save other =====
+  $("btnSaveOther").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me || !canManageOthers(me.role)) return;
+
+    const targetId = $("otherSelect").value;
+    const target = findUserById(users, targetId);
+    if (!target) return setMsg($("adminMsg"), "沒有可修改的目標。", false);
+
+    const newUser = $("otherUserEdit").value.trim();
+    const newPass = $("otherPassEdit").value;
+
+    if (!newUser || !newPass) return setMsg($("adminMsg"), "帳號與密碼都要填。", false);
+
+    const conflict = users.find(u => u.username === newUser && u.id !== target.id);
+    if (conflict) return setMsg($("adminMsg"), "帳號已被其他人使用。", false);
+
+    target.username = newUser;
+    target.password = newPass;
+    target.updatedAt = nowISO();
+
+    saveUsers(users);
+    refreshPanel();
+    setMsg($("adminMsg"), "已更新該使用者帳密。", true);
+  });
+
+  // ===== admin create new user =====
+  $("btnCreateUser").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me || !canManageOthers(me.role)) return;
+
+    const name = $("newName").value.trim();
+    const username = $("newUser").value.trim();
+    const password = $("newPass").value;
+    const role = $("newRole").value;
+
+    if (!name) return setMsg($("adminMsg"), "名稱要填。", false);
+    if (!username || !password) return setMsg($("adminMsg"), "新帳號與密碼都要填。", false);
+    if (!role) return setMsg($("adminMsg"), "新帳號身分一定要選。", false);
+    if (findUserByUsername(users, username)) return setMsg($("adminMsg"), "帳號已存在。", false);
+
+    users.push({
+      id: uuid(),
+      name,
+      username,
+      password,
+      role: String(role),
+      createdAt: nowISO(),
+      updatedAt: nowISO()
+    });
+    saveUsers(users);
+
+    $("newName").value = "";
+    $("newUser").value = "";
+    $("newPass").value = "";
+    $("newRole").value = "";
+
+    refreshPanel();
+    setMsg($("adminMsg"), "已建立新帳號。", true);
+  });
+
+  // ===== logout =====
+  $("btnLogout").addEventListener("click", () => {
+    clearSession();
+    stopClock();
+    showOnly("login");
+    setMsg($("loginMsg"), "已登出。", true);
+  });
+
+  // ===== reset =====
+  $("btnResetAll").addEventListener("click", () => {
+    localStorage.removeItem(K.users);
+    localStorage.removeItem(K.session);
+    stopClock();
+    showOnly("init");
+    setMsg($("resetMsg"), "已清空，請重新建立帳號。", true);
+  });
+})();
+</script>
+</body>
+</html>
