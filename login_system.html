@@ -219,6 +219,10 @@
         <label for="editAreaName">新名稱</label>
         <input id="editAreaName" placeholder="輸入新名稱" />
 
+        <label for="areaIconInput">場域圖案（僅工程師，可上傳）</label>
+        <input id="areaIconInput" type="file" accept="image/*" />
+        <div class="hint">目前圖案：</div><img id="areaIconPreview" class="area-icon" alt="area icon" />
+
         <label for="areaSupervisorSelect">指定場域主管（角色 2）</label>
         <select id="areaSupervisorSelect"></select>
 
@@ -267,6 +271,32 @@
         <div class="msg" id="meMsg"></div>
       </div>
 
+
+      <!-- 交接事項 -->
+      <div class="card full" id="handoverCard" hidden>
+        <div class="topbar">
+          <h1 style="margin:0;">交接事項</h1>
+          <button class="secondary" id="btnBackFromHandover">返回主畫面</button>
+        </div>
+
+        <label for="handoverAreaSelect">場域</label>
+        <select id="handoverAreaSelect"></select>
+
+        <label for="handoverTargetSelect">被交接人（同場域，可複數）</label>
+        <select id="handoverTargetSelect" multiple></select>
+        <div class="row">
+          <button class="secondary" id="btnSelectAllTargets" type="button">全選同場域</button>
+        </div>
+
+        <label for="handoverContent">交接內容 / 打卡內容</label>
+        <textarea id="handoverContent" placeholder="請輸入交接內容"></textarea>
+
+        <div class="row">
+          <button id="btnCreateHandover">新增交接</button>
+        </div>
+        <div class="msg" id="handoverMsg"></div>
+      </div>
+
       <!-- 重置 -->
       <div class="card full">
         <h2>重置（清空所有資料）</h2>
@@ -290,12 +320,12 @@
   };
   const DEFAULT_AREAS = ["北區", "中區", "南區", "東區", "西區", "南二區"];
   const DEFAULT_AREA_DATA = {
-    "北區": { weather: "多雲 27°C", handover: ["巡檢已完成", "門禁卡機異常待維修"], staff: ["王小明", "陳美玲", "李大華"], supervisorId: "", employeeIds: [] },
-    "中區": { weather: "晴天 30°C", handover: ["倉儲盤點中", "下午 3 點消防演練"], staff: ["林佳宏", "張雅婷", "鄭志明"], supervisorId: "", employeeIds: [] },
-    "南區": { weather: "短暫陣雨 26°C", handover: ["A 線保養完成", "B 線請注意地面濕滑"], staff: ["黃建國", "何佩珊", "郭秉宸"], supervisorId: "", employeeIds: [] },
-    "東區": { weather: "陰天 25°C", handover: ["冷氣保養排程中", "夜班提前 30 分鐘交接"], staff: ["呂家豪", "宋怡君", "蔡宗翰"], supervisorId: "", employeeIds: [] },
-    "西區": { weather: "晴時多雲 29°C", handover: ["出貨正常", "大門監視器已復原"], staff: ["吳孟哲", "劉佳蓉", "楊子儀"], supervisorId: "", employeeIds: [] },
-    "南二區": { weather: "多雲偶雨 27°C", handover: ["清潔外包已進場", "訪客動線已更新"], staff: ["周庭安", "蘇怡文", "許家瑋"], supervisorId: "", employeeIds: [] }
+    "北區": { weather: "多雲 27°C", handover: ["巡檢已完成", "門禁卡機異常待維修"], staff: ["王小明", "陳美玲", "李大華"] },
+    "中區": { weather: "晴天 30°C", handover: ["倉儲盤點中", "下午 3 點消防演練"], staff: ["林佳宏", "張雅婷", "鄭志明"] },
+    "南區": { weather: "短暫陣雨 26°C", handover: ["A 線保養完成", "B 線請注意地面濕滑"], staff: ["黃建國", "何佩珊", "郭秉宸"] },
+    "東區": { weather: "陰天 25°C", handover: ["冷氣保養排程中", "夜班提前 30 分鐘交接"], staff: ["呂家豪", "宋怡君", "蔡宗翰"] },
+    "西區": { weather: "晴時多雲 29°C", handover: ["出貨正常", "大門監視器已復原"], staff: ["吳孟哲", "劉佳蓉", "楊子儀"] },
+    "南二區": { weather: "多雲偶雨 27°C", handover: ["清潔外包已進場", "訪客動線已更新"], staff: ["周庭安", "蘇怡文", "許家瑋"] }
   };
   const $ = (id) => document.getElementById(id);
   const nowISO = () => new Date().toISOString();
@@ -362,9 +392,7 @@
       output[key] = {
         weather: String(info?.weather || "待更新"),
         handover: Array.isArray(info?.handover) ? info.handover.map(v => String(v || "").trim()).filter(Boolean) : [],
-        staff: Array.isArray(info?.staff) ? info.staff.map(v => String(v || "").trim()).filter(Boolean) : [],
-        supervisorId: String(info?.supervisorId || ""),
-        employeeIds: Array.isArray(info?.employeeIds) ? [...new Set(info.employeeIds.map(v => String(v || "").trim()).filter(Boolean))] : []
+        staff: Array.isArray(info?.staff) ? info.staff.map(v => String(v || "").trim()).filter(Boolean) : []
       };
     }
     return output;
@@ -373,7 +401,7 @@
     const merged = { ...normalizeAreaData(DEFAULT_AREA_DATA), ...normalizeAreaData(areaData) };
     for (const area of normalizeAreas(areas)){
       if (!merged[area]){
-        merged[area] = { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"], supervisorId: "", employeeIds: [] };
+        merged[area] = { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"] };
       }
     }
     return merged;
@@ -396,6 +424,29 @@
       if (selectedSet.has(area)) opt.selected = true;
       sel.appendChild(opt);
     }
+  }
+
+  function loadHandovers(){
+    try {
+      const arr = JSON.parse(localStorage.getItem(K.handovers) || "[]");
+      if (!Array.isArray(arr)) return [];
+      return arr.map(v => ({
+        id: String(v.id || uuid()),
+        area: String(v.area || "").trim(),
+        fromUserId: String(v.fromUserId || ""),
+        toUserIds: Array.isArray(v.toUserIds) ? [...new Set(v.toUserIds.map(x => String(x || "").trim()).filter(Boolean))] : [],
+        content: String(v.content || "").trim(),
+        createdAt: String(v.createdAt || nowISO())
+      })).filter(v => v.area && v.fromUserId && v.content);
+    } catch {
+      return [];
+    }
+  }
+  function saveHandovers(items){
+    localStorage.setItem(K.handovers, JSON.stringify(items));
+  }
+  function usersInArea(users, areaName){
+    return users.filter(u => (u.areas || []).includes(areaName));
   }
 
   function renderAreaMemberEditors(areaName, users, areaData){
@@ -490,7 +541,7 @@
     clockTimer = null;
   }
 
-  function renderDashboardAreaData(myAreas, areaData, users){
+  function renderDashboardAreaData(myAreas, areaData){
     const host = $("myAreaWidgets");
     if (!host) return;
     host.innerHTML = "";
@@ -505,12 +556,7 @@
     }
 
     for (const area of picked){
-      const info = areaData[area] || { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"], employeeIds: [] };
-      const staffNames = (info.employeeIds || [])
-        .map(id => users.find(u => u.id === id))
-        .filter(Boolean)
-        .map(u => u.name || u.username);
-      const staffForView = staffNames.length ? staffNames : (info.staff?.length ? info.staff : ["尚無排班資料"]);
+      const info = areaData[area] || { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"] };
       const card = document.createElement("div");
       card.className = "mini-card";
       card.innerHTML = `
@@ -520,7 +566,7 @@
         <div class="mini-title">2 交接事項</div>
         <ul class="mini-list">${(info.handover?.length ? info.handover : ["尚無交接事項"]).map(v => `<li>${v}</li>`).join("")}</ul>
         <div class="mini-title">3 今日上班名單</div>
-        <ul class="mini-list">${staffForView.map(v => `<li>${v}</li>`).join("")}</ul>
+        <ul class="mini-list">${(info.staff?.length ? info.staff : ["尚無排班資料"]).map(v => `<li>${v}</li>`).join("")}</ul>
       `;
       host.appendChild(card);
     }
@@ -552,7 +598,7 @@
     if (myAreas.length > 5) {
       $("meAreasShow").textContent += "（僅顯示前 5 個）";
     }
-    renderDashboardAreaData(myAreas, areaData, users);
+    renderDashboardAreaData(myAreas, areaData);
 
     // edit self fields
     $("meUserEdit").value = me.username || "";
@@ -604,7 +650,9 @@
 
     if (canManageArea){
       refreshAreaManager(areas);
-      renderAreaMemberEditors($("areaSelect").value, users, areaData);
+      const curArea = $("areaSelect").value;
+      renderAreaMemberEditors(curArea, users, areaData);
+      $("areaIconPreview").src = areaData[curArea]?.iconDataUrl || "";
     }
   }
 
@@ -643,6 +691,7 @@
     renderAreaOptions("initAreas", savedAreas);
     renderAreaOptions("newAreas", savedAreas);
     refreshAreaManager(savedAreas);
+    renderAreaOptions("handoverAreaSelect", savedAreas);
     const sess = getSession();
 
     if (users.length === 0){
@@ -911,10 +960,63 @@
     // 保留互動一致性，主管變更後由儲存按鈕寫入
   });
 
+  $("handoverAreaSelect").addEventListener("change", refreshHandoverTargetOptions);
+
+  $("btnSelectAllTargets").addEventListener("click", () => {
+    const sel = $("handoverTargetSelect");
+    Array.from(sel.options).forEach(opt => opt.selected = true);
+  });
+
+  $("btnCreateHandover").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me) return;
+
+    const area = $("handoverAreaSelect").value;
+    const myAreas = normalizeAreas(me.areas || []);
+    if (!area || !myAreas.includes(area)) return setMsg($("handoverMsg"), "只能在自己的場域建立交接。", false);
+
+    const toUserIds = getSelectedValues($("handoverTargetSelect"));
+    const areaUserIds = new Set(usersInArea(users, area).map(u => u.id));
+    const validTargets = toUserIds.filter(id => areaUserIds.has(id));
+    const content = $("handoverContent").value.trim();
+    if (!content) return setMsg($("handoverMsg"), "請輸入交接內容。", false);
+
+    const items = loadHandovers();
+    items.push({ id: uuid(), area, fromUserId: me.id, toUserIds: validTargets, content, createdAt: nowISO() });
+    saveHandovers(items);
+    $("handoverContent").value = "";
+    setMsg($("handoverMsg"), "已新增交接事項。", true);
+    refreshPanel();
+  });
+
   $("areaSelect").addEventListener("change", () => {
     const areaName = $("areaSelect").value;
     $("editAreaName").value = areaName;
-    renderAreaMemberEditors(areaName, loadUsers(), loadAreaData());
+    const areaData = loadAreaData();
+    renderAreaMemberEditors(areaName, loadUsers(), areaData);
+    $("areaIconPreview").src = areaData[areaName]?.iconDataUrl || "";
+  });
+
+  $("areaIconInput").addEventListener("change", async () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me || String(me.role) !== "1") return;
+    const areaName = $("areaSelect").value;
+    const file = $("areaIconInput").files?.[0];
+    if (!areaName || !file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const areaData = ensureAreaDataForAreas(loadAreas(), loadAreaData());
+      areaData[areaName].iconDataUrl = String(reader.result || "");
+      saveAreaData(areaData);
+      $("areaIconPreview").src = areaData[areaName].iconDataUrl || "";
+      setMsg($("areaMsg"), "場域圖案已更新。", true);
+      refreshPanel();
+    };
+    reader.readAsDataURL(file);
   });
 
   $("btnSaveAreaMembers").addEventListener("click", () => {
@@ -934,7 +1036,7 @@
     const employeeIds = getSelectedValues($("areaEmployeesSelect"));
 
     areaData[areaName] = {
-      ...(areaData[areaName] || { weather: "待更新", handover: [], staff: [] }),
+      ...(areaData[areaName] || { weather: "待更新", handover: [], staff: [], iconDataUrl: "" }),
       supervisorId,
       employeeIds
     };
