@@ -142,17 +142,6 @@
 
         <div class="divider"></div>
 
-        <div id="areaManageWrap" hidden>
-          <h2>場域管理（僅工程師）</h2>
-          <label for="newAreaName">新增場域名稱</label>
-          <input id="newAreaName" placeholder="例如：台北廠" />
-          <div class="row">
-            <button id="btnAddArea">新增場域</button>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
         <h2>建立新帳號</h2>
         <label for="newName">名稱</label>
         <input id="newName" placeholder="例如：陳大華" />
@@ -180,6 +169,37 @@
         </div>
 
         <div class="msg" id="adminMsg"></div>
+      </div>
+
+      <!-- 場域管理：僅工程師(1) -->
+      <div class="card" id="areaCard" hidden>
+        <h1>場域管理（僅工程師）</h1>
+        <div class="hint">場域管理已獨立於「建立新帳號」。僅工程師可新增、編輯、刪除場域。</div>
+
+        <div class="divider"></div>
+
+        <h2>新增場域</h2>
+        <label for="newAreaName">場域名稱</label>
+        <input id="newAreaName" placeholder="例如：台北廠" />
+        <div class="row">
+          <button id="btnAddArea">新增場域</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2>編輯 / 刪除場域</h2>
+        <label for="areaSelect">選擇場域</label>
+        <select id="areaSelect"></select>
+
+        <label for="editAreaName">新名稱</label>
+        <input id="editAreaName" placeholder="輸入新名稱" />
+
+        <div class="row">
+          <button id="btnRenameArea">儲存名稱</button>
+          <button class="danger" id="btnDeleteArea">刪除場域</button>
+        </div>
+
+        <div class="msg" id="areaMsg"></div>
       </div>
 
       <!-- 修改自己帳密（由「修改」進入） -->
@@ -371,7 +391,6 @@
     $("adminCard").hidden = !okAdmin;
 
     if (okAdmin){
-      $("areaManageWrap").hidden = String(me.role) !== "1";
       renderAreaOptions("newAreas", areas);
       // Populate other users select (exclude me)
       const others = users.filter(u => u.id !== me.id);
@@ -399,6 +418,37 @@
         $("otherPassEdit").value = others[0].password || "";
       }
     }
+
+    const canManageArea = String(me.role) === "1";
+    $("areaCard").hidden = !canManageArea;
+    if (canManageArea){
+      refreshAreaManager(areas);
+    }
+  }
+
+  function refreshAreaManager(areas = loadAreas()){
+    const areaSel = $("areaSelect");
+    const current = areaSel.value;
+    areaSel.innerHTML = "";
+
+    if (areas.length === 0){
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "（尚無場域）";
+      areaSel.appendChild(opt);
+      $("editAreaName").value = "";
+      return;
+    }
+
+    for (const area of areas){
+      const opt = document.createElement("option");
+      opt.value = area;
+      opt.textContent = area;
+      areaSel.appendChild(opt);
+    }
+
+    areaSel.value = areas.includes(current) ? current : areas[0];
+    $("editAreaName").value = areaSel.value;
   }
 
   // ----- boot routing -----
@@ -408,6 +458,7 @@
     saveAreas(savedAreas);
     renderAreaOptions("initAreas", savedAreas);
     renderAreaOptions("newAreas", savedAreas);
+    refreshAreaManager(savedAreas);
     const sess = getSession();
 
     if (users.length === 0){
@@ -613,17 +664,76 @@
     if (!me || String(me.role) !== "1") return;
 
     const areaName = $("newAreaName").value.trim();
-    if (!areaName) return setMsg($("adminMsg"), "場域名稱要填。", false);
+    if (!areaName) return setMsg($("areaMsg"), "場域名稱要填。", false);
 
     const areas = loadAreas();
-    if (areas.includes(areaName)) return setMsg($("adminMsg"), "場域已存在。", false);
+    if (areas.includes(areaName)) return setMsg($("areaMsg"), "場域已存在。", false);
 
     areas.push(areaName);
     saveAreas(areas);
     renderAreaOptions("newAreas", areas);
     renderAreaOptions("initAreas", areas);
+    refreshAreaManager(areas);
     $("newAreaName").value = "";
-    setMsg($("adminMsg"), "已新增場域。", true);
+    setMsg($("areaMsg"), "已新增場域。", true);
+  });
+
+  $("areaSelect").addEventListener("change", () => {
+    $("editAreaName").value = $("areaSelect").value;
+  });
+
+  $("btnRenameArea").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me || String(me.role) !== "1") return;
+
+    const oldName = $("areaSelect").value;
+    const newName = $("editAreaName").value.trim();
+    if (!oldName) return setMsg($("areaMsg"), "沒有可編輯的場域。", false);
+    if (!newName) return setMsg($("areaMsg"), "新名稱要填。", false);
+
+    const areas = loadAreas();
+    if (!areas.includes(oldName)) return setMsg($("areaMsg"), "原場域不存在。", false);
+    if (oldName !== newName && areas.includes(newName)) return setMsg($("areaMsg"), "新名稱已存在。", false);
+
+    const idx = areas.indexOf(oldName);
+    areas[idx] = newName;
+
+    for (const u of users){
+      if (!Array.isArray(u.areas)) continue;
+      u.areas = u.areas.map(a => (a === oldName ? newName : a));
+      u.updatedAt = nowISO();
+    }
+
+    saveAreas(areas);
+    saveUsers(users);
+    renderAreaOptions("newAreas", areas);
+    renderAreaOptions("initAreas", areas);
+    refreshPanel();
+    setMsg($("areaMsg"), "已更新場域名稱。", true);
+  });
+
+  $("btnDeleteArea").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me || String(me.role) !== "1") return;
+
+    const areaName = $("areaSelect").value;
+    if (!areaName) return setMsg($("areaMsg"), "沒有可刪除的場域。", false);
+
+    const usedBy = users.filter(u => (u.areas || []).includes(areaName));
+    if (usedBy.length > 0){
+      return setMsg($("areaMsg"), "此場域仍有使用者綁定，無法刪除。", false);
+    }
+
+    const areas = loadAreas().filter(a => a !== areaName);
+    saveAreas(areas);
+    renderAreaOptions("newAreas", areas);
+    renderAreaOptions("initAreas", areas);
+    refreshAreaManager(areas);
+    setMsg($("areaMsg"), "已刪除場域。", true);
   });
 
   // ===== logout =====
