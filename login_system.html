@@ -870,12 +870,6 @@
     if (!target) return setMsg($("adminMsg"), "沒有可刪除的目標。", false);
 
     const nextUsers = users.filter(u => u.id !== target.id);
-    const areaData = loadAreaData();
-    for (const areaName of Object.keys(areaData)){
-      if (areaData[areaName].supervisorId === target.id) areaData[areaName].supervisorId = "";
-      areaData[areaName].employeeIds = (areaData[areaName].employeeIds || []).filter(id => id !== target.id);
-    }
-    saveAreaData(areaData);
     saveUsers(nextUsers);
     refreshPanel();
     setMsg($("adminMsg"), "已刪除該帳號。", true);
