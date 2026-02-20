@@ -253,6 +253,23 @@
 
       <!-- 重置 -->
       <div class="card full">
+        <h2>儲存後台設定</h2>
+        <label for="backendBaseUrl">後台 API Base URL</label>
+        <input id="backendBaseUrl" placeholder="例如：http://localhost:8080" />
+
+        <label for="backendToken">API Token（選填）</label>
+        <input id="backendToken" placeholder="例如：Bearer xxxxx" />
+
+        <div class="row">
+          <button id="btnSaveBackendConfig">儲存後台設定</button>
+          <button class="secondary" id="btnSyncBackend">同步目前資料到後台</button>
+        </div>
+        <div class="hint">說明：會將 users / areas / areaData 送到 <span class="mono">POST /api/sync</span>。</div>
+        <div class="msg" id="backendMsg"></div>
+      </div>
+
+      <!-- 重置 -->
+      <div class="card full">
         <h2>重置（清空所有資料）</h2>
         <div class="row">
           <button class="danger" id="btnResetAll">清除 localStorage 並重新開始</button>
@@ -270,7 +287,8 @@
     users: "demo_users_v2",      // [{id, name, username, password, role, areas, createdAt, updatedAt}]
     areas: "demo_areas_v1",      // ["北區", "南區", ...]
     areaData: "demo_area_data_v1", // { [areaName]: { weather, handover, staff } }
-    session: "demo_session_v2"   // { userId }
+    session: "demo_session_v2",  // { userId }
+    backend: "demo_backend_config_v1" // { baseUrl, token }
   };
   const DEFAULT_AREAS = ["北區", "中區", "南區", "東區", "西區", "南二區"];
   const DEFAULT_AREA_DATA = {
@@ -308,6 +326,24 @@
   function loadUsers(){
     try { return JSON.parse(localStorage.getItem(K.users) || "[]"); }
     catch { return []; }
+  }
+
+  function loadBackendConfig(){
+    try {
+      const config = JSON.parse(localStorage.getItem(K.backend) || "null");
+      return {
+        baseUrl: String(config?.baseUrl || "").trim(),
+        token: String(config?.token || "").trim()
+      };
+    } catch {
+      return { baseUrl: "", token: "" };
+    }
+  }
+  function saveBackendConfig(config){
+    localStorage.setItem(K.backend, JSON.stringify({
+      baseUrl: String(config?.baseUrl || "").trim(),
+      token: String(config?.token || "").trim()
+    }));
   }
   function saveUsers(users){
     localStorage.setItem(K.users, JSON.stringify(users));
@@ -540,6 +576,10 @@
     if (canManageArea){
       refreshAreaManager(areas);
     }
+
+    const backend = loadBackendConfig();
+    $("backendBaseUrl").value = backend.baseUrl;
+    $("backendToken").value = backend.token;
   }
 
   function refreshAreaManager(areas = loadAreas()){
@@ -578,6 +618,9 @@
     renderAreaOptions("newAreas", savedAreas);
     refreshAreaManager(savedAreas);
     const sess = getSession();
+    const backend = loadBackendConfig();
+    $("backendBaseUrl").value = backend.baseUrl;
+    $("backendToken").value = backend.token;
 
     if (users.length === 0){
       showOnly("init");
@@ -917,6 +960,50 @@
     stopClock();
     showOnly("init");
     setMsg($("resetMsg"), "已清空，請重新建立帳號。", true);
+  });
+
+  // ===== backend sync =====
+  $("btnSaveBackendConfig").addEventListener("click", () => {
+    const baseUrl = $("backendBaseUrl").value.trim().replace(/\/$/, "");
+    const token = $("backendToken").value.trim();
+    saveBackendConfig({ baseUrl, token });
+    setMsg($("backendMsg"), "後台設定已儲存。", true);
+  });
+
+  $("btnSyncBackend").addEventListener("click", async () => {
+    const config = loadBackendConfig();
+    if (!config.baseUrl){
+      return setMsg($("backendMsg"), "請先填入後台 API Base URL。", false);
+    }
+
+    const payload = {
+      users: loadUsers(),
+      areas: loadAreas(),
+      areaData: loadAreaData(),
+      syncedAt: nowISO()
+    };
+
+    const headers = { "Content-Type": "application/json" };
+    if (config.token){
+      headers.Authorization = config.token;
+    }
+
+    try {
+      const res = await fetch(`${config.baseUrl}/api/sync`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok){
+        const text = await res.text();
+        return setMsg($("backendMsg"), `同步失敗（${res.status}）：${text || "請檢查後台"}`, false);
+      }
+
+      setMsg($("backendMsg"), "已成功同步到後台。", true);
+    } catch (err) {
+      setMsg($("backendMsg"), `無法連線到後台：${err?.message || "未知錯誤"}`, false);
+    }
   });
 })();
 </script>
