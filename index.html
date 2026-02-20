@@ -290,21 +290,12 @@
   };
   const DEFAULT_AREAS = ["北區", "中區", "南區", "東區", "西區", "南二區"];
   const DEFAULT_AREA_DATA = {
-<<<<<<< HEAD:index.html
-    "北區": { weather: "多雲 27°C", handover: ["巡檢已完成", "門禁卡機異常待維修"], staff: ["王小明", "陳美玲", "李大華"] },
-    "中區": { weather: "晴天 30°C", handover: ["倉儲盤點中", "下午 3 點消防演練"], staff: ["林佳宏", "張雅婷", "鄭志明"] },
-    "南區": { weather: "短暫陣雨 26°C", handover: ["A 線保養完成", "B 線請注意地面濕滑"], staff: ["黃建國", "何佩珊", "郭秉宸"] },
-    "東區": { weather: "陰天 25°C", handover: ["冷氣保養排程中", "夜班提前 30 分鐘交接"], staff: ["呂家豪", "宋怡君", "蔡宗翰"] },
-    "西區": { weather: "晴時多雲 29°C", handover: ["出貨正常", "大門監視器已復原"], staff: ["吳孟哲", "劉佳蓉", "楊子儀"] },
-    "南二區": { weather: "多雲偶雨 27°C", handover: ["清潔外包已進場", "訪客動線已更新"], staff: ["周庭安", "蘇怡文", "許家瑋"] }
-=======
     "北區": { weather: "多雲 27°C", handover: ["巡檢已完成", "門禁卡機異常待維修"], staff: ["王小明", "陳美玲", "李大華"], supervisorId: "", employeeIds: [] },
     "中區": { weather: "晴天 30°C", handover: ["倉儲盤點中", "下午 3 點消防演練"], staff: ["林佳宏", "張雅婷", "鄭志明"], supervisorId: "", employeeIds: [] },
     "南區": { weather: "短暫陣雨 26°C", handover: ["A 線保養完成", "B 線請注意地面濕滑"], staff: ["黃建國", "何佩珊", "郭秉宸"], supervisorId: "", employeeIds: [] },
     "東區": { weather: "陰天 25°C", handover: ["冷氣保養排程中", "夜班提前 30 分鐘交接"], staff: ["呂家豪", "宋怡君", "蔡宗翰"], supervisorId: "", employeeIds: [] },
     "西區": { weather: "晴時多雲 29°C", handover: ["出貨正常", "大門監視器已復原"], staff: ["吳孟哲", "劉佳蓉", "楊子儀"], supervisorId: "", employeeIds: [] },
     "南二區": { weather: "多雲偶雨 27°C", handover: ["清潔外包已進場", "訪客動線已更新"], staff: ["周庭安", "蘇怡文", "許家瑋"], supervisorId: "", employeeIds: [] }
->>>>>>> origin/codex/implement-user-account-management-features-6spwzt:login_system.html
   };
   const $ = (id) => document.getElementById(id);
   const nowISO = () => new Date().toISOString();
@@ -371,13 +362,9 @@
       output[key] = {
         weather: String(info?.weather || "待更新"),
         handover: Array.isArray(info?.handover) ? info.handover.map(v => String(v || "").trim()).filter(Boolean) : [],
-<<<<<<< HEAD:index.html
-        staff: Array.isArray(info?.staff) ? info.staff.map(v => String(v || "").trim()).filter(Boolean) : []
-=======
         staff: Array.isArray(info?.staff) ? info.staff.map(v => String(v || "").trim()).filter(Boolean) : [],
         supervisorId: String(info?.supervisorId || ""),
         employeeIds: Array.isArray(info?.employeeIds) ? [...new Set(info.employeeIds.map(v => String(v || "").trim()).filter(Boolean))] : []
->>>>>>> origin/codex/implement-user-account-management-features-6spwzt:login_system.html
       };
     }
     return output;
@@ -386,11 +373,7 @@
     const merged = { ...normalizeAreaData(DEFAULT_AREA_DATA), ...normalizeAreaData(areaData) };
     for (const area of normalizeAreas(areas)){
       if (!merged[area]){
-<<<<<<< HEAD:index.html
-        merged[area] = { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"] };
-=======
         merged[area] = { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"], supervisorId: "", employeeIds: [] };
->>>>>>> origin/codex/implement-user-account-management-features-6spwzt:login_system.html
       }
     }
     return merged;
@@ -507,11 +490,7 @@
     clockTimer = null;
   }
 
-<<<<<<< HEAD:index.html
-  function renderDashboardAreaData(myAreas, areaData){
-=======
   function renderDashboardAreaData(myAreas, areaData, users){
->>>>>>> origin/codex/implement-user-account-management-features-6spwzt:login_system.html
     const host = $("myAreaWidgets");
     if (!host) return;
     host.innerHTML = "";
@@ -526,16 +505,12 @@
     }
 
     for (const area of picked){
-<<<<<<< HEAD:index.html
-      const info = areaData[area] || { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"] };
-=======
       const info = areaData[area] || { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"], employeeIds: [] };
       const staffNames = (info.employeeIds || [])
         .map(id => users.find(u => u.id === id))
         .filter(Boolean)
         .map(u => u.name || u.username);
       const staffForView = staffNames.length ? staffNames : (info.staff?.length ? info.staff : ["尚無排班資料"]);
->>>>>>> origin/codex/implement-user-account-management-features-6spwzt:login_system.html
       const card = document.createElement("div");
       card.className = "mini-card";
       card.innerHTML = `
@@ -545,11 +520,7 @@
         <div class="mini-title">2 交接事項</div>
         <ul class="mini-list">${(info.handover?.length ? info.handover : ["尚無交接事項"]).map(v => `<li>${v}</li>`).join("")}</ul>
         <div class="mini-title">3 今日上班名單</div>
-<<<<<<< HEAD:index.html
-        <ul class="mini-list">${(info.staff?.length ? info.staff : ["尚無排班資料"]).map(v => `<li>${v}</li>`).join("")}</ul>
-=======
         <ul class="mini-list">${staffForView.map(v => `<li>${v}</li>`).join("")}</ul>
->>>>>>> origin/codex/implement-user-account-management-features-6spwzt:login_system.html
       `;
       host.appendChild(card);
     }
@@ -581,11 +552,7 @@
     if (myAreas.length > 5) {
       $("meAreasShow").textContent += "（僅顯示前 5 個）";
     }
-<<<<<<< HEAD:index.html
-    renderDashboardAreaData(myAreas, areaData);
-=======
     renderDashboardAreaData(myAreas, areaData, users);
->>>>>>> origin/codex/implement-user-account-management-features-6spwzt:login_system.html
 
     // edit self fields
     $("meUserEdit").value = me.username || "";
@@ -903,15 +870,12 @@
     if (!target) return setMsg($("adminMsg"), "沒有可刪除的目標。", false);
 
     const nextUsers = users.filter(u => u.id !== target.id);
-<<<<<<< HEAD:index.html
-=======
     const areaData = loadAreaData();
     for (const areaName of Object.keys(areaData)){
       if (areaData[areaName].supervisorId === target.id) areaData[areaName].supervisorId = "";
       areaData[areaName].employeeIds = (areaData[areaName].employeeIds || []).filter(id => id !== target.id);
     }
     saveAreaData(areaData);
->>>>>>> origin/codex/implement-user-account-management-features-6spwzt:login_system.html
     saveUsers(nextUsers);
     refreshPanel();
     setMsg($("adminMsg"), "已刪除該帳號。", true);
