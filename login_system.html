@@ -31,6 +31,12 @@
     .msg.bad { color:#ff9ab0; }
     .hint { font-size:12px; opacity:.8; line-height:1.6; }
     .topbar { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .area-grid { display:grid; grid-template-columns:1fr; gap:10px; margin-top:10px; }
+    @media (min-width: 860px){ .area-grid { grid-template-columns: 1fr 1fr; } }
+    .mini-card { border:1px solid #2a3b61; border-radius:12px; padding:10px; background:#0b1324; }
+    .mini-card h3 { margin:0 0 8px; font-size:14px; }
+    .mini-list { margin:6px 0 0; padding-left:18px; font-size:12px; opacity:.9; line-height:1.5; }
+    .mini-title { font-size:12px; opacity:.8; margin-top:6px; }
   </style>
 </head>
 <body>
@@ -110,6 +116,10 @@
           身分：<span class="pill" id="meRoleShow"></span><br/>
           場域：<span class="mono" id="meAreasShow"></span>
         </div>
+
+        <div class="divider"></div>
+        <h2>我的場域資訊（最多顯示 5 個）</h2>
+        <div class="area-grid" id="myAreaWidgets"></div>
 
         <div class="row">
           <button class="secondary" id="btnLogout">登出</button>
@@ -259,9 +269,18 @@
   const K = {
     users: "demo_users_v2",      // [{id, name, username, password, role, areas, createdAt, updatedAt}]
     areas: "demo_areas_v1",      // ["北區", "南區", ...]
+    areaData: "demo_area_data_v1", // { [areaName]: { weather, handover, staff } }
     session: "demo_session_v2"   // { userId }
   };
-  const DEFAULT_AREAS = ["北區", "中區", "南區"];
+  const DEFAULT_AREAS = ["北區", "中區", "南區", "東區", "西區", "南二區"];
+  const DEFAULT_AREA_DATA = {
+    "北區": { weather: "多雲 27°C", handover: ["巡檢已完成", "門禁卡機異常待維修"], staff: ["王小明", "陳美玲", "李大華"] },
+    "中區": { weather: "晴天 30°C", handover: ["倉儲盤點中", "下午 3 點消防演練"], staff: ["林佳宏", "張雅婷", "鄭志明"] },
+    "南區": { weather: "短暫陣雨 26°C", handover: ["A 線保養完成", "B 線請注意地面濕滑"], staff: ["黃建國", "何佩珊", "郭秉宸"] },
+    "東區": { weather: "陰天 25°C", handover: ["冷氣保養排程中", "夜班提前 30 分鐘交接"], staff: ["呂家豪", "宋怡君", "蔡宗翰"] },
+    "西區": { weather: "晴時多雲 29°C", handover: ["出貨正常", "大門監視器已復原"], staff: ["吳孟哲", "劉佳蓉", "楊子儀"] },
+    "南二區": { weather: "多雲偶雨 27°C", handover: ["清潔外包已進場", "訪客動線已更新"], staff: ["周庭安", "蘇怡文", "許家瑋"] }
+  };
   const $ = (id) => document.getElementById(id);
   const nowISO = () => new Date().toISOString();
   const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : (Date.now() + "_" + Math.random().toString(16).slice(2)));
@@ -306,6 +325,40 @@
   }
   function saveAreas(areas){
     localStorage.setItem(K.areas, JSON.stringify(normalizeAreas(areas)));
+  }
+  function loadAreaData(){
+    try {
+      const obj = JSON.parse(localStorage.getItem(K.areaData) || "null");
+      if (obj && typeof obj === "object") return normalizeAreaData(obj);
+      return normalizeAreaData(DEFAULT_AREA_DATA);
+    } catch {
+      return normalizeAreaData(DEFAULT_AREA_DATA);
+    }
+  }
+  function saveAreaData(areaData){
+    localStorage.setItem(K.areaData, JSON.stringify(normalizeAreaData(areaData)));
+  }
+  function normalizeAreaData(areaData){
+    const output = {};
+    for (const [name, info] of Object.entries(areaData || {})){
+      const key = String(name || "").trim();
+      if (!key) continue;
+      output[key] = {
+        weather: String(info?.weather || "待更新"),
+        handover: Array.isArray(info?.handover) ? info.handover.map(v => String(v || "").trim()).filter(Boolean) : [],
+        staff: Array.isArray(info?.staff) ? info.staff.map(v => String(v || "").trim()).filter(Boolean) : []
+      };
+    }
+    return output;
+  }
+  function ensureAreaDataForAreas(areas, areaData){
+    const merged = { ...normalizeAreaData(DEFAULT_AREA_DATA), ...normalizeAreaData(areaData) };
+    for (const area of normalizeAreas(areas)){
+      if (!merged[area]){
+        merged[area] = { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"] };
+      }
+    }
+    return merged;
   }
   function normalizeAreas(areas){
     return [...new Set((areas || []).map(v => String(v || "").trim()).filter(Boolean))];
@@ -382,6 +435,37 @@
     clockTimer = null;
   }
 
+  function renderDashboardAreaData(myAreas, areaData){
+    const host = $("myAreaWidgets");
+    if (!host) return;
+    host.innerHTML = "";
+
+    const picked = normalizeAreas(myAreas).slice(0, 5);
+    if (picked.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "mini-card";
+      empty.textContent = "尚未指派場域，請由工程師設定。";
+      host.appendChild(empty);
+      return;
+    }
+
+    for (const area of picked){
+      const info = areaData[area] || { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"] };
+      const card = document.createElement("div");
+      card.className = "mini-card";
+      card.innerHTML = `
+        <h3>${area}</h3>
+        <div class="mini-title">1 天氣格</div>
+        <div>${info.weather || "待更新"}</div>
+        <div class="mini-title">2 交接事項</div>
+        <ul class="mini-list">${(info.handover?.length ? info.handover : ["尚無交接事項"]).map(v => `<li>${v}</li>`).join("")}</ul>
+        <div class="mini-title">3 今日上班名單</div>
+        <ul class="mini-list">${(info.staff?.length ? info.staff : ["尚無排班資料"]).map(v => `<li>${v}</li>`).join("")}</ul>
+      `;
+      host.appendChild(card);
+    }
+  }
+
   function refreshPanel(){
     const users = loadUsers();
     const areas = loadAreas();
@@ -396,10 +480,19 @@
     }
 
     // dashboard show
+    const areaData = ensureAreaDataForAreas(areas, loadAreaData());
+    saveAreaData(areaData);
+    const myAreas = normalizeAreas(me.areas || []);
+    const shownAreas = myAreas.slice(0, 5);
+
     $("meNameShow").textContent = me.name || "";
     $("meUserShow").textContent = me.username || "";
     $("meRoleShow").textContent = roleText(me.role);
-    $("meAreasShow").textContent = (me.areas || []).join("、") || "未設定";
+    $("meAreasShow").textContent = shownAreas.join("、") || "未設定";
+    if (myAreas.length > 5) {
+      $("meAreasShow").textContent += "（僅顯示前 5 個）";
+    }
+    renderDashboardAreaData(myAreas, areaData);
 
     // edit self fields
     $("meUserEdit").value = me.username || "";
@@ -478,7 +571,9 @@
   (function boot(){
     const users = loadUsers();
     const savedAreas = loadAreas();
+    const areaData = ensureAreaDataForAreas(savedAreas, loadAreaData());
     saveAreas(savedAreas);
+    saveAreaData(areaData);
     renderAreaOptions("initAreas", savedAreas);
     renderAreaOptions("newAreas", savedAreas);
     refreshAreaManager(savedAreas);
@@ -726,7 +821,9 @@
     if (areas.includes(areaName)) return setMsg($("areaMsg"), "場域已存在。", false);
 
     areas.push(areaName);
+    const areaData = ensureAreaDataForAreas(areas, loadAreaData());
     saveAreas(areas);
+    saveAreaData(areaData);
     renderAreaOptions("newAreas", areas);
     renderAreaOptions("initAreas", areas);
     refreshAreaManager(areas);
@@ -756,6 +853,12 @@
     const idx = areas.indexOf(oldName);
     areas[idx] = newName;
 
+    const areaData = loadAreaData();
+    if (areaData[oldName]){
+      areaData[newName] = areaData[oldName];
+      delete areaData[oldName];
+    }
+
     for (const u of users){
       if (!Array.isArray(u.areas)) continue;
       u.areas = u.areas.map(a => (a === oldName ? newName : a));
@@ -763,6 +866,7 @@
     }
 
     saveAreas(areas);
+    saveAreaData(ensureAreaDataForAreas(areas, areaData));
     saveUsers(users);
     renderAreaOptions("newAreas", areas);
     renderAreaOptions("initAreas", areas);
@@ -785,7 +889,10 @@
     }
 
     const areas = loadAreas().filter(a => a !== areaName);
+    const areaData = loadAreaData();
+    delete areaData[areaName];
     saveAreas(areas);
+    saveAreaData(ensureAreaDataForAreas(areas, areaData));
     renderAreaOptions("newAreas", areas);
     renderAreaOptions("initAreas", areas);
     refreshAreaManager(areas);
@@ -805,6 +912,7 @@
     localStorage.removeItem(K.users);
     localStorage.removeItem(K.session);
     localStorage.removeItem(K.areas);
+    localStorage.removeItem(K.areaData);
     stopClock();
     showOnly("init");
     setMsg($("resetMsg"), "已清空，請重新建立帳號。", true);
