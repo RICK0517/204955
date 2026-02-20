@@ -31,6 +31,17 @@
     .msg.bad { color:#ff9ab0; }
     .hint { font-size:12px; opacity:.8; line-height:1.6; }
     .topbar { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .area-grid { display:grid; grid-template-columns:1fr; gap:10px; margin-top:10px; }
+    @media (min-width: 860px){ .area-grid { grid-template-columns: 1fr 1fr; } }
+    .mini-card { border:1px solid #2a3b61; border-radius:12px; padding:10px; background:#0b1324; }
+    .mini-card h3 { margin:0 0 8px; font-size:14px; }
+    .mini-list { margin:6px 0 0; padding-left:18px; font-size:12px; opacity:.9; line-height:1.5; }
+    .mini-title { font-size:12px; opacity:.8; margin-top:6px; }
+    .area-icon { width:40px; height:40px; border-radius:8px; object-fit:cover; border:1px solid #2a3b61; margin-right:8px; vertical-align:middle; }
+    .handover-list { display:grid; gap:8px; margin-top:10px; }
+    .handover-item { border:1px solid #2a3b61; border-radius:10px; padding:10px; background:#0b1324; }
+    .handover-item.me { border-color:#ff4b6e; box-shadow:0 0 0 1px #ff4b6e inset; }
+    textarea { width:100%; padding:10px; margin-top:4px; border-radius:10px; border:1px solid #2a3b61; background:#0b1324; color:#e8eefc; box-sizing:border-box; min-height:90px; }
   </style>
 </head>
 <body>
@@ -69,7 +80,7 @@
       <option value="2">2 主管</option>
       <option value="3">3 員工</option>
     </select>
-    <label for="initAreas">場域（可多選，建立帳號必選）</label>
+    <label for="initAreas">場域（可多選，建立帳號可略過）</label>
     <select id="initAreas" multiple></select>
     <div class="hint">提示：可按住 Ctrl / Command 進行多選。</div>
     <div class="row">
@@ -84,10 +95,15 @@
     <div class="grid">
 
       <!-- 主畫面 -->
-      <div class="card">
+      <div class="card" id="dashboardCard">
         <div class="topbar">
           <h1 style="margin:0;">主畫面</h1>
-          <button class="secondary" id="btnGotoEdit">修改</button>
+          <div class="row" style="margin-top:0;">
+            <button class="secondary" id="btnGotoEdit">修改我的帳號</button>
+            <button class="secondary" id="btnOpenAccountMgmt" hidden>帳號管理</button>
+            <button class="secondary" id="btnOpenAreaMgmt" hidden>場域管理</button>
+            <button class="secondary" id="btnOpenHandover">交接事項</button>
+          </div>
         </div>
 
         <div class="divider"></div>
@@ -107,6 +123,14 @@
           場域：<span class="mono" id="meAreasShow"></span>
         </div>
 
+        <div class="divider"></div>
+        <h2>我的場域資訊（最多顯示 5 個）</h2>
+        <div class="area-grid" id="myAreaWidgets"></div>
+
+        <div class="divider"></div>
+        <h2>最新交接事項（5 筆）</h2>
+        <div id="latestHandoverList" class="handover-list"></div>
+
         <div class="row">
           <button class="secondary" id="btnLogout">登出</button>
         </div>
@@ -114,11 +138,14 @@
       </div>
 
       <!-- 管理其他人：只給 工程師(1) / 主管(2) -->
-      <div class="card" id="adminCard" hidden>
-        <h1>管理其他人的帳密</h1>
+      <div class="card full" id="adminCard" hidden>
+        <div class="topbar">
+          <h1 style="margin:0;">帳號管理</h1>
+          <button class="secondary" id="btnBackFromAdmin">返回主畫面</button>
+        </div>
         <div class="hint">
           工程師（1）/ 主管（2）可修改其他人的帳號與密碼；員工（3）不顯示此區。<br/>
-          這裡的帳號與密碼欄位，和「修改自己的帳號 / 密碼」介面一致。身分建立後鎖定，不提供修改。
+          工程師可額外指派場域與刪除帳號。身分建立後鎖定，不提供修改。
         </div>
 
         <div class="divider"></div>
@@ -136,8 +163,13 @@
         <label for="otherPassEdit">密碼</label>
         <input id="otherPassEdit" type="text" />
 
+        <label for="otherAreasEdit">場域（僅工程師可編輯）</label>
+        <select id="otherAreasEdit" multiple></select>
+        <div class="hint">提示：可按住 Ctrl / Command 進行多選。</div>
+
         <div class="row">
           <button id="btnSaveOther">儲存</button>
+          <button class="danger" id="btnDeleteOther" hidden>刪除帳號（僅工程師）</button>
         </div>
 
         <div class="divider"></div>
@@ -160,7 +192,7 @@
           <option value="3">3 員工</option>
         </select>
 
-        <label for="newAreas">場域（可多選，建立帳號必選）</label>
+        <label for="newAreas">場域（可多選，建立帳號可略過）</label>
         <select id="newAreas" multiple></select>
         <div class="hint">提示：可按住 Ctrl / Command 進行多選。</div>
 
@@ -172,8 +204,11 @@
       </div>
 
       <!-- 場域管理：僅工程師(1) -->
-      <div class="card" id="areaCard" hidden>
-        <h1>場域管理（僅工程師）</h1>
+      <div class="card full" id="areaCard" hidden>
+        <div class="topbar">
+          <h1 style="margin:0;">場域管理（僅工程師）</h1>
+          <button class="secondary" id="btnBackFromArea">返回主畫面</button>
+        </div>
         <div class="hint">場域管理已獨立於「建立新帳號」。僅工程師可新增、編輯、刪除場域。</div>
 
         <div class="divider"></div>
@@ -194,8 +229,22 @@
         <label for="editAreaName">新名稱</label>
         <input id="editAreaName" placeholder="輸入新名稱" />
 
+        <label for="areaIconInput">場域圖案（僅工程師，可上傳）</label>
+        <input id="areaIconInput" type="file" accept="image/*" />
+        <div class="hint">目前圖案：</div><img id="areaIconPreview" class="area-icon" alt="area icon" />
+
+        <label for="areaSupervisorSelect">指定場域主管（角色 2）</label>
+        <select id="areaSupervisorSelect"></select>
+
+        <label for="areaEmployeesSelect">編輯場域員工（角色 3，可多選）</label>
+        <select id="areaEmployeesSelect" multiple></select>
+        <div class="hint">提示：可按住 Ctrl / Command 進行多選。</div>
+
+        <div class="hint">目前場域員工：<span class="mono" id="areaEmployeesPreview">--</span></div>
+
         <div class="row">
           <button id="btnRenameArea">儲存名稱</button>
+          <button id="btnSaveAreaMembers">儲存主管/員工</button>
           <button class="danger" id="btnDeleteArea">刪除場域</button>
         </div>
 
@@ -219,11 +268,43 @@
         <label for="mePassEdit">密碼</label>
         <input id="mePassEdit" type="text" />
 
+        <div id="meAreasBlock" hidden>
+          <label for="meAreasEdit">我的場域（僅工程師可編輯）</label>
+          <select id="meAreasEdit" multiple></select>
+          <div class="hint">提示：可按住 Ctrl / Command 進行多選。</div>
+        </div>
+
         <div class="row">
           <button id="btnSaveMe">儲存</button>
         </div>
 
         <div class="msg" id="meMsg"></div>
+      </div>
+
+
+      <!-- 交接事項 -->
+      <div class="card full" id="handoverCard" hidden>
+        <div class="topbar">
+          <h1 style="margin:0;">交接事項</h1>
+          <button class="secondary" id="btnBackFromHandover">返回主畫面</button>
+        </div>
+
+        <label for="handoverAreaSelect">場域</label>
+        <select id="handoverAreaSelect"></select>
+
+        <label for="handoverTargetSelect">被交接人（同場域，可複數）</label>
+        <select id="handoverTargetSelect" multiple></select>
+        <div class="row">
+          <button class="secondary" id="btnSelectAllTargets" type="button">全選同場域</button>
+        </div>
+
+        <label for="handoverContent">交接內容 / 打卡內容</label>
+        <textarea id="handoverContent" placeholder="請輸入交接內容"></textarea>
+
+        <div class="row">
+          <button id="btnCreateHandover">新增交接</button>
+        </div>
+        <div class="msg" id="handoverMsg"></div>
       </div>
 
       <!-- 重置 -->
@@ -244,9 +325,19 @@
   const K = {
     users: "demo_users_v2",      // [{id, name, username, password, role, areas, createdAt, updatedAt}]
     areas: "demo_areas_v1",      // ["北區", "南區", ...]
+    areaData: "demo_area_data_v1", // { [areaName]: { weather, handover, staff } }
+    handovers: "demo_handovers_v1", // [{id, area, fromUserId, toUserIds, content, createdAt}]
     session: "demo_session_v2"   // { userId }
   };
-  const DEFAULT_AREAS = ["北區", "中區", "南區"];
+  const DEFAULT_AREAS = ["北區", "中區", "南區", "東區", "西區", "南二區"];
+  const DEFAULT_AREA_DATA = {
+    "北區": { weather: "多雲 27°C", handover: ["巡檢已完成", "門禁卡機異常待維修"], staff: ["王小明", "陳美玲", "李大華"], supervisorId: "", employeeIds: [] },
+    "中區": { weather: "晴天 30°C", handover: ["倉儲盤點中", "下午 3 點消防演練"], staff: ["林佳宏", "張雅婷", "鄭志明"], supervisorId: "", employeeIds: [] },
+    "南區": { weather: "短暫陣雨 26°C", handover: ["A 線保養完成", "B 線請注意地面濕滑"], staff: ["黃建國", "何佩珊", "郭秉宸"], supervisorId: "", employeeIds: [] },
+    "東區": { weather: "陰天 25°C", handover: ["冷氣保養排程中", "夜班提前 30 分鐘交接"], staff: ["呂家豪", "宋怡君", "蔡宗翰"], supervisorId: "", employeeIds: [] },
+    "西區": { weather: "晴時多雲 29°C", handover: ["出貨正常", "大門監視器已復原"], staff: ["吳孟哲", "劉佳蓉", "楊子儀"], supervisorId: "", employeeIds: [] },
+    "南二區": { weather: "多雲偶雨 27°C", handover: ["清潔外包已進場", "訪客動線已更新"], staff: ["周庭安", "蘇怡文", "許家瑋"], supervisorId: "", employeeIds: [] }
+  };
   const $ = (id) => document.getElementById(id);
   const nowISO = () => new Date().toISOString();
   const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : (Date.now() + "_" + Math.random().toString(16).slice(2)));
@@ -261,6 +352,9 @@
   }
   function canManageOthers(role){
     return String(role) === "1" || String(role) === "2";
+  }
+  function isEngineer(role){
+    return String(role) === "1";
   }
 
   function setMsg(el, text, ok=true){
@@ -289,6 +383,43 @@
   function saveAreas(areas){
     localStorage.setItem(K.areas, JSON.stringify(normalizeAreas(areas)));
   }
+  function loadAreaData(){
+    try {
+      const obj = JSON.parse(localStorage.getItem(K.areaData) || "null");
+      if (obj && typeof obj === "object") return normalizeAreaData(obj);
+      return normalizeAreaData(DEFAULT_AREA_DATA);
+    } catch {
+      return normalizeAreaData(DEFAULT_AREA_DATA);
+    }
+  }
+  function saveAreaData(areaData){
+    localStorage.setItem(K.areaData, JSON.stringify(normalizeAreaData(areaData)));
+  }
+  function normalizeAreaData(areaData){
+    const output = {};
+    for (const [name, info] of Object.entries(areaData || {})){
+      const key = String(name || "").trim();
+      if (!key) continue;
+      output[key] = {
+        weather: String(info?.weather || "待更新"),
+        handover: Array.isArray(info?.handover) ? info.handover.map(v => String(v || "").trim()).filter(Boolean) : [],
+        staff: Array.isArray(info?.staff) ? info.staff.map(v => String(v || "").trim()).filter(Boolean) : [],
+        supervisorId: String(info?.supervisorId || ""),
+        employeeIds: Array.isArray(info?.employeeIds) ? [...new Set(info.employeeIds.map(v => String(v || "").trim()).filter(Boolean))] : [],
+        iconDataUrl: String(info?.iconDataUrl || "")
+      };
+    }
+    return output;
+  }
+  function ensureAreaDataForAreas(areas, areaData){
+    const merged = { ...normalizeAreaData(DEFAULT_AREA_DATA), ...normalizeAreaData(areaData) };
+    for (const area of normalizeAreas(areas)){
+      if (!merged[area]){
+        merged[area] = { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"], supervisorId: "", employeeIds: [], iconDataUrl: "" };
+      }
+    }
+    return merged;
+  }
   function normalizeAreas(areas){
     return [...new Set((areas || []).map(v => String(v || "").trim()).filter(Boolean))];
   }
@@ -307,6 +438,66 @@
       if (selectedSet.has(area)) opt.selected = true;
       sel.appendChild(opt);
     }
+  }
+
+  function loadHandovers(){
+    try {
+      const arr = JSON.parse(localStorage.getItem(K.handovers) || "[]");
+      if (!Array.isArray(arr)) return [];
+      return arr.map(v => ({
+        id: String(v.id || uuid()),
+        area: String(v.area || "").trim(),
+        fromUserId: String(v.fromUserId || ""),
+        toUserIds: Array.isArray(v.toUserIds) ? [...new Set(v.toUserIds.map(x => String(x || "").trim()).filter(Boolean))] : [],
+        content: String(v.content || "").trim(),
+        createdAt: String(v.createdAt || nowISO())
+      })).filter(v => v.area && v.fromUserId && v.content);
+    } catch {
+      return [];
+    }
+  }
+  function saveHandovers(items){
+    localStorage.setItem(K.handovers, JSON.stringify(items));
+  }
+  function usersInArea(users, areaName){
+    return users.filter(u => (u.areas || []).includes(areaName));
+  }
+
+  function renderAreaMemberEditors(areaName, users, areaData){
+    const supSel = $("areaSupervisorSelect");
+    const empSel = $("areaEmployeesSelect");
+    const preview = $("areaEmployeesPreview");
+    if (!supSel || !empSel || !preview) return;
+
+    const info = areaData[areaName] || { supervisorId: "", employeeIds: [], staff: [] };
+    const supervisors = users.filter(u => String(u.role) === "2");
+    const employees = users.filter(u => String(u.role) === "3");
+
+    supSel.innerHTML = "";
+    const noneOpt = document.createElement("option");
+    noneOpt.value = "";
+    noneOpt.textContent = "（未指定）";
+    supSel.appendChild(noneOpt);
+    for (const u of supervisors){
+      const opt = document.createElement("option");
+      opt.value = u.id;
+      opt.textContent = `${u.name || "(未命名)"} / ${u.username}`;
+      if (u.id === info.supervisorId) opt.selected = true;
+      supSel.appendChild(opt);
+    }
+
+    empSel.innerHTML = "";
+    const selectedEmp = new Set(info.employeeIds || []);
+    for (const u of employees){
+      const opt = document.createElement("option");
+      opt.value = u.id;
+      opt.textContent = `${u.name || "(未命名)"} / ${u.username}`;
+      if (selectedEmp.has(u.id)) opt.selected = true;
+      empSel.appendChild(opt);
+    }
+
+    const selectedNames = employees.filter(u => selectedEmp.has(u.id)).map(u => u.name || u.username);
+    preview.textContent = selectedNames.length ? selectedNames.join("、") : "（尚未指定）";
   }
 
   function getSession(){
@@ -330,12 +521,14 @@
   function showOnly(which){
     $("loginCard").hidden = which !== "login";
     $("initCard").hidden  = which !== "init";
-    $("panelArea").hidden = which !== "panel";
-    // within panel
+    const inPanel = ["panel", "edit", "admin", "area", "handover"].includes(which);
+    $("panelArea").hidden = !inPanel;
+
+    $("dashboardCard").hidden = which !== "panel";
     $("editCard").hidden  = which !== "edit";
-    if (which === "edit") {
-      $("panelArea").hidden = false;
-    }
+    $("adminCard").hidden = which !== "admin";
+    $("areaCard").hidden = which !== "area";
+    $("handoverCard").hidden = which !== "handover";
   }
 
   // ----- Clock -----
@@ -363,6 +556,88 @@
     clockTimer = null;
   }
 
+  function renderDashboardAreaData(myAreas, areaData, users){
+    const host = $("myAreaWidgets");
+    if (!host) return;
+    host.innerHTML = "";
+
+    const picked = normalizeAreas(myAreas).slice(0, 5);
+    if (picked.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "mini-card";
+      empty.textContent = "尚未指派場域，請由工程師設定。";
+      host.appendChild(empty);
+      return;
+    }
+
+    for (const area of picked){
+      const info = areaData[area] || { weather: "待更新", handover: ["尚無交接事項"], staff: ["尚無排班資料"], employeeIds: [] };
+      const staffNames = (info.employeeIds || [])
+        .map(id => users.find(u => u.id === id))
+        .filter(Boolean)
+        .map(u => u.name || u.username);
+      const staffForView = staffNames.length ? staffNames : (info.staff?.length ? info.staff : ["尚無排班資料"]);
+      const card = document.createElement("div");
+      card.className = "mini-card";
+      card.innerHTML = `
+        <h3>${info.iconDataUrl ? `<img class="area-icon" src="${info.iconDataUrl}" alt="${area}" />` : ""}${area}</h3>
+        <div class="mini-title">1 天氣格</div>
+        <div>${info.weather || "待更新"}</div>
+        <div class="mini-title">2 交接事項</div>
+        <ul class="mini-list">${(info.handover?.length ? info.handover : ["尚無交接事項"]).map(v => `<li>${v}</li>`).join("")}</ul>
+        <div class="mini-title">3 今日上班名單</div>
+        <ul class="mini-list">${staffForView.map(v => `<li>${v}</li>`).join("")}</ul>
+      `;
+      host.appendChild(card);
+    }
+  }
+
+  function renderLatestHandovers(me, users, myAreas){
+    const host = $("latestHandoverList");
+    if (!host) return;
+    host.innerHTML = "";
+    const mySet = new Set(normalizeAreas(myAreas));
+    const rows = loadHandovers()
+      .filter(h => mySet.has(h.area))
+      .sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+      .slice(0,5);
+
+    if (!rows.length){
+      const div = document.createElement("div");
+      div.className = "handover-item";
+      div.textContent = "目前沒有交接資料。";
+      host.appendChild(div);
+      return;
+    }
+
+    for (const h of rows){
+      const from = users.find(u => u.id === h.fromUserId);
+      const toUsers = h.toUserIds.map(id => users.find(u => u.id === id)).filter(Boolean);
+      const isMine = h.toUserIds.includes(me.id);
+      const item = document.createElement("div");
+      item.className = "handover-item" + (isMine ? " me" : "");
+      item.innerHTML = `<div><b>[${h.area}]</b> ${h.content}</div><div class="hint">交接人：${from ? (from.name || from.username) : "未知"} ｜ 被交接人：${toUsers.length ? toUsers.map(u => u.name || u.username).join("、") : "（未指定）"} ｜ 時間：${new Date(h.createdAt).toLocaleString("zh-Hant")}</div>`;
+      host.appendChild(item);
+    }
+  }
+
+  function refreshHandoverTargetOptions(){
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me) return;
+    const area = $("handoverAreaSelect").value;
+    const targets = usersInArea(users, area).filter(u => u.id !== me.id);
+    const sel = $("handoverTargetSelect");
+    sel.innerHTML = "";
+    for (const u of targets){
+      const opt = document.createElement("option");
+      opt.value = u.id;
+      opt.textContent = `${u.name || "(未命名)"} / ${u.username}`;
+      sel.appendChild(opt);
+    }
+  }
+
   function refreshPanel(){
     const users = loadUsers();
     const areas = loadAreas();
@@ -377,18 +652,36 @@
     }
 
     // dashboard show
+    const areaData = ensureAreaDataForAreas(areas, loadAreaData());
+    saveAreaData(areaData);
+    const myAreas = normalizeAreas(me.areas || []);
+    const shownAreas = myAreas.slice(0, 5);
+
     $("meNameShow").textContent = me.name || "";
     $("meUserShow").textContent = me.username || "";
     $("meRoleShow").textContent = roleText(me.role);
-    $("meAreasShow").textContent = (me.areas || []).join("、") || "未設定";
+    $("meAreasShow").textContent = shownAreas.join("、") || "未設定";
+    if (myAreas.length > 5) {
+      $("meAreasShow").textContent += "（僅顯示前 5 個）";
+    }
+    renderDashboardAreaData(myAreas, areaData, users);
+    renderLatestHandovers(me, users, myAreas);
 
     // edit self fields
     $("meUserEdit").value = me.username || "";
     $("mePassEdit").value = me.password || "";
+    const meIsEngineer = isEngineer(me.role);
+    $("meAreasBlock").hidden = !meIsEngineer;
+    if (meIsEngineer){
+      renderAreaOptions("meAreasEdit", areas, myAreas);
+    }
 
-    // admin visibility
+    // admin / area entry buttons visibility
     const okAdmin = canManageOthers(me.role);
-    $("adminCard").hidden = !okAdmin;
+    const canManageArea = isEngineer(me.role);
+    $("btnOpenAccountMgmt").hidden = !okAdmin;
+    $("btnOpenAreaMgmt").hidden = !canManageArea;
+    $("btnDeleteOther").hidden = !isEngineer(me.role);
 
     if (okAdmin){
       renderAreaOptions("newAreas", areas);
@@ -405,6 +698,7 @@
         $("otherNameView").value = "";
         $("otherUserEdit").value = "";
         $("otherPassEdit").value = "";
+        renderAreaOptions("otherAreasEdit", areas, []);
       } else {
         for (const u of others){
           const opt = document.createElement("option");
@@ -416,13 +710,16 @@
         $("otherNameView").value = others[0].name || "";
         $("otherUserEdit").value = others[0].username || "";
         $("otherPassEdit").value = others[0].password || "";
+        renderAreaOptions("otherAreasEdit", areas, others[0].areas || []);
       }
+      $("otherAreasEdit").disabled = !isEngineer(me.role);
     }
 
-    const canManageArea = String(me.role) === "1";
-    $("areaCard").hidden = !canManageArea;
     if (canManageArea){
       refreshAreaManager(areas);
+      const curArea = $("areaSelect").value;
+      renderAreaMemberEditors(curArea, users, areaData);
+      $("areaIconPreview").src = areaData[curArea]?.iconDataUrl || "";
     }
   }
 
@@ -455,10 +752,13 @@
   (function boot(){
     const users = loadUsers();
     const savedAreas = loadAreas();
+    const areaData = ensureAreaDataForAreas(savedAreas, loadAreaData());
     saveAreas(savedAreas);
+    saveAreaData(areaData);
     renderAreaOptions("initAreas", savedAreas);
     renderAreaOptions("newAreas", savedAreas);
     refreshAreaManager(savedAreas);
+    renderAreaOptions("handoverAreaSelect", savedAreas);
     const sess = getSession();
 
     if (users.length === 0){
@@ -494,7 +794,6 @@
     if (!name) return setMsg($("initMsg"), "名稱要填。", false);
     if (!username || !password) return setMsg($("initMsg"), "帳號與密碼都要填。", false);
     if (!role) return setMsg($("initMsg"), "身分一定要選，建立後鎖定。", false);
-    if (selectedAreas.length === 0) return setMsg($("initMsg"), "至少要選擇一個場域。", false);
 
     const users = loadUsers();
     if (findUserByUsername(users, username)) return setMsg($("initMsg"), "帳號已存在。", false);
@@ -546,6 +845,30 @@
     showOnly("panel");
   });
 
+  $("btnOpenAccountMgmt").addEventListener("click", () => {
+    showOnly("admin");
+    $("adminMsg").textContent = "";
+  });
+
+  $("btnOpenAreaMgmt").addEventListener("click", () => {
+    showOnly("area");
+    $("areaMsg").textContent = "";
+  });
+
+  $("btnBackFromAdmin").addEventListener("click", () => showOnly("panel"));
+  $("btnBackFromArea").addEventListener("click", () => showOnly("panel"));
+  $("btnOpenHandover").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    const areas = normalizeAreas(me?.areas || []);
+    renderAreaOptions("handoverAreaSelect", areas);
+    refreshHandoverTargetOptions();
+    showOnly("handover");
+    $("handoverMsg").textContent = "";
+  });
+  $("btnBackFromHandover").addEventListener("click", () => showOnly("panel"));
+
   // ===== save self =====
   $("btnSaveMe").addEventListener("click", () => {
     const users = loadUsers();
@@ -563,6 +886,9 @@
 
     me.username = newUser;
     me.password = newPass;
+    if (isEngineer(me.role)){
+      me.areas = getSelectedValues($("meAreasEdit"));
+    }
     me.updatedAt = nowISO();
 
     saveUsers(users);
@@ -584,6 +910,7 @@
     $("otherNameView").value = u.name || "";
     $("otherUserEdit").value = u.username || "";
     $("otherPassEdit").value = u.password || "";
+    renderAreaOptions("otherAreasEdit", loadAreas(), u.areas || []);
   });
 
   // ===== admin save other =====
@@ -607,6 +934,9 @@
 
     target.username = newUser;
     target.password = newPass;
+    if (isEngineer(me.role)) {
+      target.areas = getSelectedValues($("otherAreasEdit"));
+    }
     target.updatedAt = nowISO();
 
     saveUsers(users);
@@ -630,7 +960,6 @@
     if (!name) return setMsg($("adminMsg"), "名稱要填。", false);
     if (!username || !password) return setMsg($("adminMsg"), "新帳號與密碼都要填。", false);
     if (!role) return setMsg($("adminMsg"), "新帳號身分一定要選。", false);
-    if (selectedAreas.length === 0) return setMsg($("adminMsg"), "新帳號至少要選擇一個場域。", false);
     if (findUserByUsername(users, username)) return setMsg($("adminMsg"), "帳號已存在。", false);
 
     users.push({
@@ -656,6 +985,30 @@
   });
 
 
+  // ===== engineer delete user =====
+  $("btnDeleteOther").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me || !isEngineer(me.role)) return;
+
+    const targetId = $("otherSelect").value;
+    const target = findUserById(users, targetId);
+    if (!target) return setMsg($("adminMsg"), "沒有可刪除的目標。", false);
+
+    const nextUsers = users.filter(u => u.id !== target.id);
+    const areaData = loadAreaData();
+    for (const areaName of Object.keys(areaData)){
+      if (areaData[areaName].supervisorId === target.id) areaData[areaName].supervisorId = "";
+      areaData[areaName].employeeIds = (areaData[areaName].employeeIds || []).filter(id => id !== target.id);
+    }
+    saveAreaData(areaData);
+    saveUsers(nextUsers);
+    refreshPanel();
+    setMsg($("adminMsg"), "已刪除該帳號。", true);
+  });
+
+
   // ===== engineer add area =====
   $("btnAddArea").addEventListener("click", () => {
     const users = loadUsers();
@@ -670,7 +1023,9 @@
     if (areas.includes(areaName)) return setMsg($("areaMsg"), "場域已存在。", false);
 
     areas.push(areaName);
+    const areaData = ensureAreaDataForAreas(areas, loadAreaData());
     saveAreas(areas);
+    saveAreaData(areaData);
     renderAreaOptions("newAreas", areas);
     renderAreaOptions("initAreas", areas);
     refreshAreaManager(areas);
@@ -678,8 +1033,102 @@
     setMsg($("areaMsg"), "已新增場域。", true);
   });
 
+  $("areaEmployeesSelect").addEventListener("change", () => {
+    const users = loadUsers();
+    const selected = new Set(getSelectedValues($("areaEmployeesSelect")));
+    const names = users.filter(u => String(u.role) === "3" && selected.has(u.id)).map(u => u.name || u.username);
+    $("areaEmployeesPreview").textContent = names.length ? names.join("、") : "（尚未指定）";
+  });
+
+  $("areaSupervisorSelect").addEventListener("change", () => {
+    // 保留互動一致性，主管變更後由儲存按鈕寫入
+  });
+
+  $("handoverAreaSelect").addEventListener("change", refreshHandoverTargetOptions);
+
+  $("btnSelectAllTargets").addEventListener("click", () => {
+    const sel = $("handoverTargetSelect");
+    Array.from(sel.options).forEach(opt => opt.selected = true);
+  });
+
+  $("btnCreateHandover").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me) return;
+
+    const area = $("handoverAreaSelect").value;
+    const myAreas = normalizeAreas(me.areas || []);
+    if (!area || !myAreas.includes(area)) return setMsg($("handoverMsg"), "只能在自己的場域建立交接。", false);
+
+    const toUserIds = getSelectedValues($("handoverTargetSelect"));
+    const areaUserIds = new Set(usersInArea(users, area).map(u => u.id));
+    const validTargets = toUserIds.filter(id => areaUserIds.has(id));
+    const content = $("handoverContent").value.trim();
+    if (!content) return setMsg($("handoverMsg"), "請輸入交接內容。", false);
+
+    const items = loadHandovers();
+    items.push({ id: uuid(), area, fromUserId: me.id, toUserIds: validTargets, content, createdAt: nowISO() });
+    saveHandovers(items);
+    $("handoverContent").value = "";
+    setMsg($("handoverMsg"), "已新增交接事項。", true);
+    refreshPanel();
+  });
+
   $("areaSelect").addEventListener("change", () => {
-    $("editAreaName").value = $("areaSelect").value;
+    const areaName = $("areaSelect").value;
+    $("editAreaName").value = areaName;
+    const areaData = loadAreaData();
+    renderAreaMemberEditors(areaName, loadUsers(), areaData);
+    $("areaIconPreview").src = areaData[areaName]?.iconDataUrl || "";
+  });
+
+  $("areaIconInput").addEventListener("change", async () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me || String(me.role) !== "1") return;
+    const areaName = $("areaSelect").value;
+    const file = $("areaIconInput").files?.[0];
+    if (!areaName || !file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const areaData = ensureAreaDataForAreas(loadAreas(), loadAreaData());
+      areaData[areaName].iconDataUrl = String(reader.result || "");
+      saveAreaData(areaData);
+      $("areaIconPreview").src = areaData[areaName].iconDataUrl || "";
+      setMsg($("areaMsg"), "場域圖案已更新。", true);
+      refreshPanel();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $("btnSaveAreaMembers").addEventListener("click", () => {
+    const users = loadUsers();
+    const sess = getSession();
+    const me = sess ? findUserById(users, sess.userId) : null;
+    if (!me || String(me.role) !== "1") return;
+
+    const areaName = $("areaSelect").value;
+    if (!areaName) return setMsg($("areaMsg"), "沒有可編輯的場域。", false);
+
+    const areas = loadAreas();
+    if (!areas.includes(areaName)) return setMsg($("areaMsg"), "場域不存在。", false);
+
+    const areaData = ensureAreaDataForAreas(areas, loadAreaData());
+    const supervisorId = $("areaSupervisorSelect").value;
+    const employeeIds = getSelectedValues($("areaEmployeesSelect"));
+
+    areaData[areaName] = {
+      ...(areaData[areaName] || { weather: "待更新", handover: [], staff: [], iconDataUrl: "" }),
+      supervisorId,
+      employeeIds
+    };
+
+    saveAreaData(areaData);
+    renderAreaMemberEditors(areaName, users, areaData);
+    setMsg($("areaMsg"), "已儲存場域主管與員工。", true);
+    refreshPanel();
   });
 
   $("btnRenameArea").addEventListener("click", () => {
@@ -700,6 +1149,12 @@
     const idx = areas.indexOf(oldName);
     areas[idx] = newName;
 
+    const areaData = loadAreaData();
+    if (areaData[oldName]){
+      areaData[newName] = areaData[oldName];
+      delete areaData[oldName];
+    }
+
     for (const u of users){
       if (!Array.isArray(u.areas)) continue;
       u.areas = u.areas.map(a => (a === oldName ? newName : a));
@@ -707,6 +1162,7 @@
     }
 
     saveAreas(areas);
+    saveAreaData(ensureAreaDataForAreas(areas, areaData));
     saveUsers(users);
     renderAreaOptions("newAreas", areas);
     renderAreaOptions("initAreas", areas);
@@ -729,7 +1185,10 @@
     }
 
     const areas = loadAreas().filter(a => a !== areaName);
+    const areaData = loadAreaData();
+    delete areaData[areaName];
     saveAreas(areas);
+    saveAreaData(ensureAreaDataForAreas(areas, areaData));
     renderAreaOptions("newAreas", areas);
     renderAreaOptions("initAreas", areas);
     refreshAreaManager(areas);
@@ -749,6 +1208,8 @@
     localStorage.removeItem(K.users);
     localStorage.removeItem(K.session);
     localStorage.removeItem(K.areas);
+    localStorage.removeItem(K.areaData);
+    localStorage.removeItem(K.handovers);
     stopClock();
     showOnly("init");
     setMsg($("resetMsg"), "已清空，請重新建立帳號。", true);
